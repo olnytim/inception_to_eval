@@ -1,0 +1,127 @@
+version: '3'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: ${NGINX_DOCKERFILE}
+    container_name: nginx
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    networks:
+      - ${NETWORK}
+    volumes:
+      - ${NGINX_CONF_DIR}:/etc/nginx/http.d/
+      - ${NGINX_SSL_DIR}:/etc/nginx/ssl/
+      - wp-volume:/var/www/
+    restart: always
+    env_file: .env
+
+  mariadb:
+    build:
+      context: .
+      dockerfile: ${MARIADB_DOCKERFILE}
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+        DB_ROOT: ${DB_ROOT}
+    container_name: mariadb
+    ports:
+      - "3306:3306"
+    networks:
+      - ${NETWORK}
+    volumes:
+      - db-volume:/var/lib/mysql
+    restart: always
+    env_file: .env
+
+  wordpress:
+    build:
+      context: .
+      dockerfile: ${WP_DOCKERFILE}
+      args:
+        DB_NAME: ${DB_NAME}
+        DB_USER: ${DB_USER}
+        DB_PASS: ${DB_PASS}
+    container_name: wordpress
+    depends_on:
+      - mariadb
+    restart: always
+    networks:
+      - ${NETWORK}
+    volumes:
+      - wp-volume:/var/www/
+    env_file: .env
+
+  redis:
+    build:
+      context: .
+      dockerfile: ${REDIS_DOCKERFILE}
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - ${NETWORK}
+    restart: always
+    env_file: .env
+
+  vsftpd:
+    build:
+      context: .
+      dockerfile: ${VSFTPD_DOCKERFILE}
+      args:
+        FTP_USR: ${FTP_USR}
+        FTP_PWD: ${FTP_PWD}
+    container_name: vsftpd
+    ports:
+      - "21:21"
+    volumes:
+      - wp-volume:/var/www/
+    networks:
+      - ${NETWORK}
+    restart: always
+    env_file: .env
+
+  adminer:
+    build:
+      context: .
+      dockerfile: ${ADMINER_DOCKERFILE}
+    container_name: adminer
+    depends_on:
+      - mariadb
+    ports:
+      - "8080:8080"
+    networks:
+      - ${NETWORK}
+    restart: always
+    env_file: .env
+
+      #website:
+      #build:
+      #context: .
+      #dockerfile: requirements/bonus/website/Dockerfile
+      #container_name: website
+      #ports:
+      #- "80:80"
+      #restart: always
+      #env_file: .env
+
+volumes:
+  db-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/mariadb
+
+  wp-volume:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/${USER}/data/wordpress
+
+networks:
+  inception:
+    driver: bridge
